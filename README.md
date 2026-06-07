@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# UAE Pollen Atlas — Next.js
 
-## Getting Started
+A **pollen monitoring & decision-support** platform for the United Arab Emirates: it predicts what pollen is in the air from a flowering calendar and historical records, fuses it with air quality into a colour-coded **risk index**, and serves multiple map audiences — the public (allergy risk), farmers, beekeepers, and cultivation specialists.
 
-First, run the development server:
+This is a TypeScript / Next.js port of an ASP.NET Core MVC application.
+
+## Stack
+
+- **Next.js 16** (App Router) · **React 19** · **TypeScript** · **Tailwind CSS v4**
+- **Prisma 6** ORM with **SQLite** (zero-setup; the schema is Postgres-portable — swap the datasource and you're done)
+- **Leaflet** for the GIS map, **Recharts** for analytics
+
+## Features
+
+- **GIS map** with switchable layers: pollen records, trap devices, **mobile beehives**, and a per-region **pollen + air-quality risk index** (four-band: Low / Moderate / High / Very high). Audience filter for beekeeper (bee-forage species) and pharma/cultivation views.
+- **Allergy forecast** — combines allergenic taxa in flower this month with the latest air quality (dust events and high PM10 amplify the risk).
+- **Catalogue** — plant species and pollen-type morphology, with cross-links.
+- **Flowering calendar**, **catalogue insights** (charts), and an **apiary register**.
+- **Public JSON API** under `/api/v1` (`meta`, `species`, `pollen-types`, `calendar`).
+
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env          # Windows: copy .env.example .env
+npm run db:push               # create the SQLite database from the schema
+npm run db:seed               # load demo data (regions, species, records, air quality, beehives)
+npm run dev                   # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Scripts
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Start the dev server |
+| `npm run build` / `npm start` | Production build / serve |
+| `npm run db:push` | Sync the Prisma schema to the database |
+| `npm run db:seed` | (Re)load the deterministic demo dataset |
+| `npm run db:reset` | Force-reset the database and reseed |
+| `npm run db:generate` | Regenerate the Prisma client |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Project layout
 
-## Learn More
+```
+prisma/schema.prisma     # domain model (11 entities)
+prisma/seed.ts           # deterministic demo seed
+src/lib/db.ts            # Prisma client
+src/lib/enums.ts         # string-enum unions + display labels
+src/lib/risk.ts          # risk index + forecast engine
+src/app/                 # App Router pages + /api routes
+src/components/           # Nav, PageHead
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Scope
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+This build is **public read-only** (what an anonymous visitor sees). Authentication, role-based admin, and create/edit/delete workflows from the original are not yet ported.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Demo data is illustrative. Catalogue content is licensed CC BY 4.0.
