@@ -1,0 +1,210 @@
+// UAE Pollen Atlas — Next.js port of the ASP.NET Core / EF Core domain.
+// SQLite for zero-setup local dev; the schema avoids SQLite-only features so a
+// swap to PostgreSQL is just a datasource change. Enums are modelled as String
+// columns (SQLite has no native enums) — see src/lib/enums.ts for the typed
+// unions + display labels. The spatial geography Point on the original geo models
+// is dropped in favour of the plain latitude/longitude doubles they also carried.
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PRISMA_DATABASE_URL")
+}
+
+model Region {
+  id          Int     @id @default(autoincrement())
+  name        String
+  nameAr      String?
+  code        String?
+  description String?
+  latitude    Float? // region centroid (was Region.Centroid Point)
+  longitude   Float?
+
+  pollenRecords PollenRecord[]
+  trapDevices   TrapDevice[]
+  airReadings   AirQualityReading[]
+  beehives      Beehive[]
+}
+
+model PlantSpecies {
+  id                  Int      @id @default(autoincrement())
+  scientificName      String
+  commonName          String?
+  commonNameAr        String?
+  family              String?
+  genus               String?
+  nativeStatus        String   @default("Unknown")
+  habitat             String   @default("Unspecified")
+  floweringSeason     String   @default("Unknown")
+  floweringMonths     String? // CSV of 1-12
+  isAllergenic        Boolean  @default(false)
+  allergenicNotes     String?
+  isBeeForage         Boolean  @default(false)
+  isCultivationTarget Boolean  @default(false)
+  description         String?
+  references          String?
+  imagePath           String?
+  createdAt           DateTime @default(now())
+
+  pollenTypes   PollenType[]
+  pollenRecords PollenRecord[]
+}
+
+model PollenType {
+  id                 Int      @id @default(autoincrement())
+  name               String
+  plantSpeciesId     Int
+  plantSpecies       PlantSpecies @relation(fields: [plantSpeciesId], references: [id])
+  sizeMicronsMin     Float?
+  sizeMicronsMax     Float?
+  shape              String   @default("Unknown")
+  apertures          String   @default("Unknown")
+  surface            String   @default("Unknown")
+  diagnosticFeatures String?
+  morphologyNotes    String?
+  references         String?
+  primaryImagePath   String?
+  status             String   @default("Draft")
+  createdAt          DateTime @default(now())
+  submittedAt        DateTime?
+  reviewedAt         DateTime?
+  reviewNote         String?
+
+  images         PollenImage[]
+  records        PollenRecord[]
+  airborneCounts AirborneSamplePollenCount[]
+
+  @@index([status])
+}
+
+model PollenRecord {
+  id              Int      @id @default(autoincrement())
+  code            String
+  pollenTypeId    Int
+  pollenType      PollenType @relation(fields: [pollenTypeId], references: [id])
+  plantSpeciesId  Int?
+  plantSpecies    PlantSpecies? @relation(fields: [plantSpeciesId], references: [id])
+  regionId        Int?
+  region          Region? @relation(fields: [regionId], references: [id])
+  latitude        Float?
+  longitude       Float?
+  locationName    String?
+  collectedOn     DateTime
+  year            Int?
+  month           Int?
+  season          String?
+  source          String   @default("FieldPlantSample")
+  notes           String?
+  status          String   @default("Draft")
+  createdAt       DateTime @default(now())
+  validatedAt     DateTime?
+  rejectionReason String?
+
+  images PollenImage[]
+
+  @@index([status])
+  @@index([regionId])
+  @@index([pollenTypeId])
+}
+
+model TrapDevice {
+  id                Int      @id @default(autoincrement())
+  serialNumber      String
+  model             String?
+  latitude          Float?
+  longitude         Float?
+  locationName      String?
+  regionId          Int?
+  region            Region? @relation(fields: [regionId], references: [id])
+  status            String   @default("Planned")
+  installedAt       DateTime?
+  lastMaintenance   DateTime?
+  isSolarPowered    Boolean  @default(false)
+  hasWeatherSensors Boolean  @default(false)
+  notes             String?
+
+  samples AirborneSample[]
+}
+
+model AirborneSample {
+  id           Int      @id @default(autoincrement())
+  trapDeviceId Int
+  trapDevice   TrapDevice @relation(fields: [trapDeviceId], references: [id])
+  sampledFrom  DateTime
+  sampledTo    DateTime
+  volumeM3     Float?
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  counts AirborneSamplePollenCount[]
+}
+
+model AirborneSamplePollenCount {
+  id                  Int   @id @default(autoincrement())
+  airborneSampleId    Int
+  airborneSample      AirborneSample @relation(fields: [airborneSampleId], references: [id], onDelete: Cascade)
+  pollenTypeId        Int
+  pollenType          PollenType @relation(fields: [pollenTypeId], references: [id])
+  countGrains         Int
+  grainsPerCubicMeter Float?
+}
+
+model AirQualityReading {
+  id               Int      @id @default(autoincrement())
+  measuredAt       DateTime
+  latitude         Float?
+  longitude        Float?
+  stationName      String?
+  regionId         Int?
+  region           Region? @relation(fields: [regionId], references: [id])
+  pm25             Float?
+  pm10             Float?
+  tempC            Float?
+  humidityPct      Float?
+  windSpeedMs      Float?
+  windDirectionDeg Float?
+  rainfallMm       Float?
+  dustEvent        Boolean  @default(false)
+  source           String?
+
+  @@index([regionId])
+  @@index([measuredAt])
+}
+
+model Beehive {
+  id           Int      @id @default(autoincrement())
+  name         String
+  owner        String?
+  latitude     Float?
+  longitude    Float?
+  locationName String?
+  regionId     Int?
+  region       Region? @relation(fields: [regionId], references: [id])
+  colonies     Int?
+  isActive     Boolean  @default(true)
+  installedAt  DateTime?
+  lastMovedAt  DateTime?
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  @@index([isActive])
+}
+
+model PollenImage {
+  id             Int      @id @default(autoincrement())
+  pollenTypeId   Int
+  pollenType     PollenType @relation(fields: [pollenTypeId], references: [id])
+  pollenRecordId Int?
+  pollenRecord   PollenRecord? @relation(fields: [pollenRecordId], references: [id])
+  filePath       String
+  caption        String?
+  microscope     String   @default("LightMicroscopy")
+  magnification  Float?
+  stain          String?
+  isValidated    Boolean  @default(false)
+  uploadedAt     DateTime @default(now())
+}
