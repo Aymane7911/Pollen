@@ -127,6 +127,9 @@ a:hover { color: var(--pa-primary); }
 .text-xs { font-size: .76rem; }
 .text-sm { font-size: .86rem; }
 
+/* Arabic text — RTL with an Arabic-capable font, isolated so it doesn't disrupt LTR flow */
+.pa-ar { font-family: 'Noto Kufi Arabic', 'Segoe UI', Tahoma, sans-serif; direction: rtl; unicode-bidi: isolate; }
+
 /* Leaflet popups */
 .leaflet-popup-content-wrapper { border-radius: 10px; }
 .leaflet-popup-content { font-family: 'Inter', sans-serif; font-size: .85rem; }

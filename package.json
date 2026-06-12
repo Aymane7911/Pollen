@@ -10,7 +10,10 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma db push --force-reset --accept-data-loss && tsx prisma/seed.ts"
+    "db:import": "tsx prisma/import-atlas.ts",
+    "db:alerts": "tsx prisma/eval-alerts.ts",
+    "db:admin": "tsx prisma/seed-admin.ts",
+    "db:reset": "prisma db push --force-reset --accept-data-loss && tsx prisma/import-atlas.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -30,6 +33,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
+    "csv-parse": "^6.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
     "prisma": "^6.19.3",

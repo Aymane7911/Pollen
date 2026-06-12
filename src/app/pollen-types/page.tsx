@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { humanize, ValidationStatus } from "@/lib/enums";
+import { getCurrentUser } from "@/lib/auth";
+import { canContribute } from "@/lib/roles";
 import { PageHead, StatusBadge } from "@/components/PageHead";
 
 export const metadata = { title: "Pollen Types · UAE Pollen Atlas" };
@@ -16,10 +18,13 @@ export default async function PollenTypesPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const { status } = await searchParams;
+  const user = await getCurrentUser();
+  const isContrib = canContribute(user?.role);
   const active = ValidationStatus.includes(status as ValidationStatus) ? status : undefined;
 
+  // Public sees only Published/Validated; contributors may filter across all statuses.
   const types = await prisma.pollenType.findMany({
-    where: active ? { status: active } : undefined,
+    where: isContrib ? (active ? { status: active } : undefined) : { status: { in: ["Published", "Validated"] } },
     orderBy: { name: "asc" },
     include: { plantSpecies: true },
   });
@@ -31,24 +36,26 @@ export default async function PollenTypesPage({
         title="Pollen Types"
         subtitle="Morphological reference types in the atlas."
       >
-        <form method="get" className="flex items-center gap-2">
-          <select
-            name="status"
-            defaultValue={active ?? ""}
-            className="pa-btn pa-btn-outline"
-            style={{ fontWeight: 500 }}
-          >
-            <option value="">All statuses</option>
-            {ValidationStatus.map((s) => (
-              <option key={s} value={s}>
-                {humanize(s)}
-              </option>
-            ))}
-          </select>
-          <button type="submit" className="pa-btn pa-btn-primary">
-            <i className="bi bi-funnel" /> Filter
-          </button>
-        </form>
+        {isContrib && (
+          <form method="get" className="flex items-center gap-2">
+            <select
+              name="status"
+              defaultValue={active ?? ""}
+              className="pa-btn pa-btn-outline"
+              style={{ fontWeight: 500 }}
+            >
+              <option value="">All statuses</option>
+              {ValidationStatus.map((s) => (
+                <option key={s} value={s}>
+                  {humanize(s)}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="pa-btn pa-btn-primary">
+              <i className="bi bi-funnel" /> Filter
+            </button>
+          </form>
+        )}
       </PageHead>
 
       <div className="mx-auto max-w-7xl px-4 pa-content">
@@ -66,7 +73,7 @@ export default async function PollenTypesPage({
               <thead>
                 <tr>
                   <th>Name</th>
-                  <th>Species</th>
+                  <th>Plant</th>
                   <th>Size</th>
                   <th>Shape</th>
                   <th>Apertures</th>

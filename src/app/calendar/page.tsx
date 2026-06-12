@@ -30,10 +30,29 @@ export default async function CalendarPage() {
       <PageHead
         eyebrow="Phenology"
         title="Flowering Calendar"
-        subtitle="When each species flowers — the basis of pollen prediction."
+        subtitle="When each plant flowers — the basis of pollen prediction."
       />
 
       <div className="mx-auto max-w-7xl px-4 pa-content">
+        {/* How to read it */}
+        <div className="pa-card" style={{ padding: "1rem 1.15rem", marginBottom: "1rem", borderLeft: "3px solid var(--pa-primary)" }}>
+          <div className="flex items-start gap-3">
+            <i className="bi bi-info-circle" style={{ color: "var(--pa-primary)", fontSize: "1.2rem", marginTop: ".1rem" }} />
+            <div className="text-sm" style={{ color: "var(--pa-ink-soft)", lineHeight: 1.6 }}>
+              <strong>How to read this calendar.</strong>{" "}Each row is a plant and the twelve columns are the months
+              (Jan&nbsp;→&nbsp;Dec). A coloured cell means that plant is <strong>in flower</strong> that month —
+              <span style={{ color: "var(--pa-primary)", fontWeight: 600 }}> green</span> for most plants and
+              <span style={{ color: "#7a5b13", fontWeight: 600 }}> amber</span> for <strong>allergenic</strong>{" "}ones
+              (worth watching if you have hay&nbsp;fever). The shaded column is the <strong>current month</strong>.
+              Tip: tap a plant&apos;s name to open its profile.
+              <div className="text-xs text-mute" style={{ marginTop: ".4rem" }}>
+                Why it matters: the flowering calendar lets the Atlas predict which pollen could be in the air
+                <em> before</em> it is even sampled at a trap.
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Legend */}
         <div className="flex items-center gap-4 mb-3 flex-wrap text-sm">
           <span className="flex items-center gap-2">
@@ -54,7 +73,7 @@ export default async function CalendarPage() {
           {species.length === 0 ? (
             <div className="pa-empty">
               <i className="bi bi-calendar3" style={{ fontSize: "2rem", color: "var(--pa-primary-light)" }} />
-              <div className="pa-empty-title">No species in the calendar</div>
+              <div className="pa-empty-title">No plants in the calendar</div>
               <p className="text-sm text-mute">The catalogue is empty.</p>
             </div>
           ) : (
@@ -62,7 +81,7 @@ export default async function CalendarPage() {
               <table className="pa-table">
                 <thead>
                   <tr>
-                    <th style={{ minWidth: "14rem" }}>Species</th>
+                    <th style={{ minWidth: "14rem" }}>Plant</th>
                     {MONTHS.map((m, i) => {
                       const month = i + 1;
                       const isCurrent = month === currentMonth;
@@ -131,6 +150,10 @@ export default async function CalendarPage() {
             </div>
           )}
         </div>
+        <p className="text-xs text-mute mt-3" style={{ lineHeight: 1.6 }}>
+          <i className="bi bi-database" /> Built from each plant&apos;s recorded flowering months; the underlying phenology
+          is curated per region and carried forward each year. Data shown is illustrative.
+        </p>
       </div>
     </>
   );

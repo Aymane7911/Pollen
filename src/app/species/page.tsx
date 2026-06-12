@@ -2,8 +2,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { humanize } from "@/lib/enums";
 import { PageHead } from "@/components/PageHead";
+import { Ar } from "@/components/Ar";
 
-export const metadata = { title: "Plant Species · UAE Pollen Atlas" };
+export const metadata = { title: "Plants · UAE Pollen Atlas" };
 
 const MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -37,6 +38,7 @@ export default async function SpeciesPage({
         (s) =>
           s.scientificName.toLowerCase().includes(needle) ||
           (s.commonName ?? "").toLowerCase().includes(needle) ||
+          (s.commonNameAr ?? "").includes(query) ||
           (s.family ?? "").toLowerCase().includes(needle),
       )
     : all;
@@ -45,7 +47,7 @@ export default async function SpeciesPage({
     <>
       <PageHead
         eyebrow="Catalogue"
-        title="Plant Species"
+        title="Plants"
         subtitle="Flora of the UAE recorded in the atlas — habitat, flowering season, allergenicity, bee-forage and cultivation value."
       />
 
@@ -55,7 +57,7 @@ export default async function SpeciesPage({
             type="search"
             name="q"
             defaultValue={query}
-            placeholder="Search scientific name, common name or family…"
+            placeholder="Search scientific, common, Arabic name, or family…"
             className="pa-input"
             style={{
               flex: "1 1 auto",
@@ -82,7 +84,7 @@ export default async function SpeciesPage({
           {species.length === 0 ? (
             <div className="pa-empty">
               <i className="bi bi-tree" style={{ fontSize: "2rem", color: "var(--pa-primary-light)" }} />
-              <div className="pa-empty-title">No plant species found</div>
+              <div className="pa-empty-title">No plants found</div>
               <p className="text-sm text-mute">
                 {query ? (
                   <>
@@ -120,7 +122,7 @@ export default async function SpeciesPage({
                           </span>
                         )}
                       </td>
-                      <td className="text-sm">{s.commonName ?? "—"}</td>
+                      <td className="text-sm">{s.commonName ?? "—"} <Ar text={s.commonNameAr} className="text-xs text-mute" style={{ marginInlineStart: ".4rem" }} /></td>
                       <td className="text-sm">{s.family ?? "—"}</td>
                       <td className="text-sm">{humanize(s.habitat)}</td>
                       <td className="text-sm">

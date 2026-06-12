@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { humanize } from "@/lib/enums";
 import { PageHead, StatusBadge, BackLink } from "@/components/PageHead";
+import { Ar } from "@/components/Ar";
 
 const MONTHS = ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -18,8 +19,8 @@ function floweringMonths(csv: string | null | undefined): string {
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const species = await prisma.plantSpecies.findUnique({
-    where: { id: Number(id) },
-    include: { pollenTypes: true },
+    where: { id: Number.isInteger(Number(id)) ? Number(id) : -1 },
+    include: { pollenTypes: { where: { status: { in: ["Published", "Validated"] } }, orderBy: { name: "asc" } } },
   });
 
   if (!species) notFound();
@@ -34,7 +35,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   return (
     <>
       <PageHead
-        eyebrow={species.family ?? "Plant species"}
+        eyebrow={species.family ?? "Plant"}
         title={species.scientificName}
         subtitle={subtitleParts.length ? subtitleParts.join(" · ") : undefined}
       >
@@ -52,7 +53,16 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               </div>
             </div>
             <div className="pa-card-body">
+              {species.imagePath && (
+                <img
+                  src={species.imagePath}
+                  alt={species.scientificName}
+                  style={{ width: "100%", maxHeight: 280, objectFit: "contain", borderRadius: "var(--pa-radius-sm)", border: "1px solid var(--pa-line)", background: "#faf9f6", marginBottom: "1rem" }}
+                />
+              )}
               <dl className="pa-dl">
+                <dt>Common name</dt>
+                <dd>{species.commonName ?? "—"} <Ar text={species.commonNameAr} className="text-mute" style={{ marginInlineStart: ".4rem" }} /></dd>
                 <dt>Genus</dt>
                 <dd>{species.genus ?? "—"}</dd>
                 <dt>Family</dt>

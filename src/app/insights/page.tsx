@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { PageHead } from "@/components/PageHead";
 import { humanize } from "@/lib/enums";
 import InsightsCharts from "./InsightsCharts";
+import { requireContribute } from "@/lib/auth";
 
 export const metadata = { title: "Insights · UAE Pollen Atlas" };
 export const dynamic = "force-dynamic"; // live aggregates from the DB
@@ -18,6 +19,7 @@ function tally<T>(src: T[], key: (t: T) => string): { name: string; value: numbe
 }
 
 export default async function InsightsPage() {
+  await requireContribute();
   const [types, species, records, air, counts] = await Promise.all([
     prisma.pollenType.findMany(),
     prisma.plantSpecies.findMany(),
@@ -47,13 +49,26 @@ export default async function InsightsPage() {
   for (const c of counts) grains[c.airborneSample.sampledFrom.getMonth()] += c.countGrains;
   const grainsByMonth = MONTHS.map((name, i) => ({ name, value: grains[i] }));
 
+  // Seasonal Pollen Integral (SPIn): summed airborne concentration per taxon (grains·m⁻³) —
+  // the standard aerobiology measure of how heavy a taxon's pollen season was (EAN/EAACI).
+  const typeName = new Map(types.map((t) => [t.id, t.name]));
+  const spinByType = new Map<number, number>();
+  for (const c of counts) {
+    if (c.grainsPerCubicMeter == null) continue;
+    spinByType.set(c.pollenTypeId, (spinByType.get(c.pollenTypeId) ?? 0) + c.grainsPerCubicMeter);
+  }
+  const spin = [...spinByType.entries()]
+    .map(([id, total]) => ({ name: typeName.get(id) ?? `#${id}`, value: Math.round(total) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 10);
+
   const stats = [
-    { label: "Plant species", value: species.length },
+    { label: "Plants", value: species.length },
     { label: "Pollen types", value: types.length },
     { label: "Records", value: records.length },
-    { label: "Allergenic species", value: species.filter((s) => s.isAllergenic).length },
+    { label: "Allergenic plants", value: species.filter((s) => s.isAllergenic).length },
     { label: "Plant families", value: new Set(species.filter((s) => s.family).map((s) => s.family)).size },
-    { label: "Bee-forage species", value: species.filter((s) => s.isBeeForage).length },
+    { label: "Bee-forage plants", value: species.filter((s) => s.isBeeForage).length },
   ];
 
   return (
@@ -77,6 +92,33 @@ export default async function InsightsPage() {
           airSeries={airSeries}
           grainsByMonth={grainsByMonth}
         />
+
+        {spin.length > 0 && (
+          <div className="pa-card mt-3">
+            <div className="pa-card-header">
+              <div><span className="pa-card-eyebrow">Season severity</span><h2>Seasonal Pollen Integral (SPIn)</h2></div>
+              <span className="pa-pill pa-pill-mute">top {spin.length}</span>
+            </div>
+            <div className="pa-card-body">
+              <p className="text-xs text-mute" style={{ marginTop: 0 }}>
+                SPIn is the summed daily airborne concentration over the season (grains·m⁻³) — the standard
+                aerobiology measure of how heavy each taxon&apos;s pollen season was.
+              </p>
+              <table className="pa-table">
+                <thead><tr><th>#</th><th>Pollen type</th><th style={{ textAlign: "right" }}>SPIn (grains·m⁻³)</th></tr></thead>
+                <tbody>
+                  {spin.map((s, i) => (
+                    <tr key={s.name}>
+                      <td className="text-mute">{i + 1}</td>
+                      <td>{s.name}</td>
+                      <td className="font-mono" style={{ textAlign: "right" }}>{s.value.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

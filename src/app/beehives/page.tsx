@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { PageHead } from "@/components/PageHead";
 import type { Prisma } from "@prisma/client";
+import { requireContribute } from "@/lib/auth";
 
 export const metadata = { title: "Apiaries · UAE Pollen Atlas" };
 
@@ -10,6 +11,7 @@ export default async function BeehivesPage({
 }: {
   searchParams: Promise<{ active?: string; regionId?: string }>;
 }) {
+  await requireContribute();
   const { active, regionId } = await searchParams;
 
   const where: Prisma.BeehiveWhereInput = {};

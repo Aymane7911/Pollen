@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { PageHead, BackLink } from "@/components/PageHead";
+import { requireContribute } from "@/lib/auth";
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  await requireContribute();
   const { id } = await params;
   const hive = await prisma.beehive.findUnique({
-    where: { id: Number(id) },
+    where: { id: Number.isInteger(Number(id)) ? Number(id) : -1 },
     include: { region: true },
   });
 

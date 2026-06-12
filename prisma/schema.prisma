@@ -28,11 +28,16 @@ model Region {
   trapDevices   TrapDevice[]
   airReadings   AirQualityReading[]
   beehives      Beehive[]
+
+  floweringCalendarEntries FloweringCalendarEntry[]
+  alertRecipients          AlertRecipient[]
+  alertRules               AlertRule[]
+  alerts                   Alert[]
 }
 
 model PlantSpecies {
   id                  Int      @id @default(autoincrement())
-  scientificName      String
+  scientificName      String   @unique
   commonName          String?
   commonNameAr        String?
   family              String?
@@ -43,15 +48,21 @@ model PlantSpecies {
   floweringMonths     String? // CSV of 1-12
   isAllergenic        Boolean  @default(false)
   allergenicNotes     String?
+  allergenWeight      Int      @default(0) // clinical potency 0-4 (Atlas AllergenWeight; not in export → 0)
   isBeeForage         Boolean  @default(false)
   isCultivationTarget Boolean  @default(false)
   description         String?
   references          String?
   imagePath           String?
+  createdById         String?
+  createdByName       String?
   createdAt           DateTime @default(now())
 
-  pollenTypes   PollenType[]
-  pollenRecords PollenRecord[]
+  pollenTypes              PollenType[]
+  pollenRecords            PollenRecord[]
+  floweringCalendarEntries FloweringCalendarEntry[]
+
+  @@index([family])
 }
 
 model PollenType {
@@ -64,6 +75,9 @@ model PollenType {
   shape              String   @default("Unknown")
   apertures          String   @default("Unknown")
   surface            String   @default("Unknown")
+  thresholdModerate  Float? // taxon-specific grains/m³ → Moderate band (null = generic 10)
+  thresholdHigh      Float? // → High band (null = generic 50)
+  thresholdVeryHigh  Float? // → Very high band (null = generic 150)
   diagnosticFeatures String?
   morphologyNotes    String?
   references         String?
@@ -73,6 +87,8 @@ model PollenType {
   submittedAt        DateTime?
   reviewedAt         DateTime?
   reviewNote         String?
+  createdById        String?
+  createdByName      String?
 
   images         PollenImage[]
   records        PollenRecord[]
@@ -83,7 +99,7 @@ model PollenType {
 
 model PollenRecord {
   id              Int      @id @default(autoincrement())
-  code            String
+  code            String   @unique
   pollenTypeId    Int
   pollenType      PollenType @relation(fields: [pollenTypeId], references: [id])
   plantSpeciesId  Int?
@@ -103,17 +119,21 @@ model PollenRecord {
   createdAt       DateTime @default(now())
   validatedAt     DateTime?
   rejectionReason String?
+  collectorId     String?
+  collectorName   String?
 
-  images PollenImage[]
+  images         PollenImage[]
+  validationLogs ValidationLog[]
 
   @@index([status])
   @@index([regionId])
   @@index([pollenTypeId])
+  @@index([collectedOn])
 }
 
 model TrapDevice {
   id                Int      @id @default(autoincrement())
-  serialNumber      String
+  serialNumber      String   @unique
   model             String?
   latitude          Float?
   longitude         Float?
@@ -205,6 +225,135 @@ model PollenImage {
   microscope     String   @default("LightMicroscopy")
   magnification  Float?
   stain          String?
+  annotations    String? // JSON annotations (Atlas PollenImage.Annotations)
   isValidated    Boolean  @default(false)
   uploadedAt     DateTime @default(now())
+}
+
+// ── Atlas parity additions ────────────────────────────────────────────────
+// Status-change audit trail for pollen records (Atlas ValidationLog; 1297 rows
+// in the export). actorId is the opaque ASP.NET Identity GUID (no user table here).
+model ValidationLog {
+  id             Int      @id @default(autoincrement())
+  pollenRecordId Int
+  pollenRecord   PollenRecord @relation(fields: [pollenRecordId], references: [id], onDelete: Cascade)
+  fromStatus     String
+  toStatus       String
+  actorId        String?
+  actorName      String?
+  comment        String?
+  changedAt      DateTime @default(now())
+
+  @@index([pollenRecordId])
+}
+
+// §7 phenology — region/year-aware flowering windows (day-of-year). Not in the
+// export; powers FloweringCalendarService logic with carry-forward + shift.
+model FloweringCalendarEntry {
+  id             Int      @id @default(autoincrement())
+  plantSpeciesId Int
+  plantSpecies   PlantSpecies @relation(fields: [plantSpeciesId], references: [id], onDelete: Cascade)
+  regionId       Int? // null = UAE-wide default
+  region         Region? @relation(fields: [regionId], references: [id])
+  year           Int
+  startDoy       Int
+  endDoy         Int // may be < startDoy (wraps the year)
+  peakDoy        Int?
+  shiftDays      Int      @default(0)
+  carriedForward Boolean  @default(false)
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  @@unique([plantSpeciesId, regionId, year])
+  @@index([year])
+}
+
+// §9 alerting — recipients, threshold rules, and fired alerts with wind-plume geometry.
+model AlertRecipient {
+  id        Int      @id @default(autoincrement())
+  name      String
+  kind      String   @default("Authority") // Authority | Hospital | Public | Other
+  email     String?
+  phone     String?
+  regionId  Int? // null = all regions
+  region    Region? @relation(fields: [regionId], references: [id])
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model AlertRule {
+  id                 Int      @id @default(autoincrement())
+  name               String
+  regionId           Int? // null = all regions
+  region             Region? @relation(fields: [regionId], references: [id])
+  minScore           Int      @default(8)
+  notifyAuthorities  Boolean  @default(true)
+  notifyHospitals    Boolean  @default(true)
+  recommendedActions String?
+  cooldownHours      Int      @default(24)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+
+  alerts Alert[]
+}
+
+model Alert {
+  id                 Int      @id @default(autoincrement())
+  alertRuleId        Int?
+  alertRule          AlertRule? @relation(fields: [alertRuleId], references: [id], onDelete: SetNull)
+  regionId           Int
+  region             Region @relation(fields: [regionId], references: [id])
+  raisedAt           DateTime @default(now())
+  riskLevel          String
+  riskScore          Int
+  summary            String
+  recommendedActions String?
+  originLat          Float?
+  originLng          Float?
+  windFromDeg        Float?
+  windSpeedMs        Float?
+  bearingDeg         Float?
+  halfAngleDeg       Float?
+  radiusKm           Float?
+  status             String   @default("Raised") // Raised | Sent | Acknowledged | Resolved
+  recipientCount     Int      @default(0)
+  dispatchLog        String?
+
+  @@index([raisedAt])
+  @@index([regionId, status])
+}
+
+// ── Authentication & RBAC (replaces the original ASP.NET Identity) ──────────
+// Roles: Administrator | Expert | Researcher | Partner. Policies (src/lib/roles.ts):
+// CanValidate = Admin,Expert · CanContribute = Admin,Expert,Researcher · CanManage = Admin.
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  passwordHash      String
+  fullName          String
+  affiliation       String?
+  orcId             String?
+  title             String?
+  role              String   @default("Researcher")
+  emailConfirmed    Boolean  @default(false)
+  emailConfirmToken String?  @unique
+  isApproved        Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  credentialPath    String? // private credential-document filename (in storage/credentials/)
+  createdAt         DateTime @default(now())
+
+  sessions Session[]
+
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

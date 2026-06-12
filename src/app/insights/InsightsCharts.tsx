@@ -69,7 +69,7 @@ export default function InsightsCharts({
           <CartesianGrid strokeDasharray="3 3" stroke="#eef1ec" />
           <XAxis type="number" tick={axis} allowDecimals={false} />
           <YAxis type="category" dataKey="name" tick={axis} width={110} />
-          <Tooltip /><Bar dataKey="value" name="Species" fill={INFO} radius={[0, 4, 4, 0]} />
+          <Tooltip /><Bar dataKey="value" name="Plants" fill={INFO} radius={[0, 4, 4, 0]} />
         </BarChart>
       </Card>
 

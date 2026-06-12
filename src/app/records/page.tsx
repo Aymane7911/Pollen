@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { humanize } from "@/lib/enums";
 import { PageHead, StatusBadge } from "@/components/PageHead";
 import type { Prisma } from "@prisma/client";
+import { requireContribute } from "@/lib/auth";
 
 export const metadata = { title: "Pollen Records · UAE Pollen Atlas" };
 
@@ -11,6 +12,7 @@ export default async function RecordsPage({
 }: {
   searchParams: Promise<{ regionId?: string; year?: string; q?: string }>;
 }) {
+  await requireContribute();
   const { regionId, year, q } = await searchParams;
   const query = (q ?? "").trim();
 
@@ -64,7 +66,7 @@ export default async function RecordsPage({
             <option value="">All regions</option>
             {regions.map((rg) => (
               <option key={rg.id} value={rg.id}>
-                {rg.name}
+                {rg.name}{rg.nameAr ? ` · ${rg.nameAr}` : ""}
               </option>
             ))}
           </select>
@@ -144,7 +146,7 @@ export default async function RecordsPage({
               <tbody>
                 {records.map((r) => (
                   <tr key={r.id}>
-                    <td className="font-mono text-xs">{r.code}</td>
+                    <td className="font-mono text-xs"><Link href={`/records/${r.id}`} style={{ fontWeight: 600 }}>{r.code}</Link></td>
                     <td className="text-sm">{r.pollenType.name}</td>
                     <td className="text-sm">{r.region?.name ?? "—"}</td>
                     <td className="font-mono text-xs">{r.collectedOn.toISOString().slice(0, 10)}</td>

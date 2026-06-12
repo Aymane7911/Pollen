@@ -32,7 +32,7 @@ export default function AboutPage() {
             <div className="pa-card-body">
               <p className="text-sm" style={{ color: "var(--pa-ink-soft)" }}>
                 The UAE Pollen Atlas is a decision-support system. It predicts what pollen is airborne from the
-                flowering calendar of recorded species combined with historical pollen records, fuses that signal
+                flowering calendar of recorded plants combined with historical pollen records, fuses that signal
                 with live air-quality readings, and renders the result as a single colour-coded risk index. The same
                 index serves several audiences at once — from the public checking allergy risk to specialists
                 planning cultivation.
@@ -57,7 +57,7 @@ export default function AboutPage() {
                   <strong>Farmers</strong> — vegetation and flowering signals across the regions.
                 </li>
                 <li>
-                  <strong>Beekeepers</strong> — bee-forage species in bloom and registered apiary locations.
+                  <strong>Beekeepers</strong> — bee-forage plants in bloom and registered apiary locations.
                 </li>
                 <li>
                   <strong>Pharma &amp; cultivation specialists</strong> — allergenic and cultivation-target taxa for
@@ -78,8 +78,10 @@ export default function AboutPage() {
           </div>
           <div className="pa-card-body">
             <p className="text-sm" style={{ color: "var(--pa-ink-soft)" }}>
-              The risk index is reported on four bands. Pollution amplifies the risk — active dust events and high
-              PM10 add to the score, so a dusty day can push the band higher than pollen alone would.
+              The risk index is reported on four bands, computed from allergen-weighted taxa in flower this month
+              and the peak airborne concentration measured at pollen traps (grains/m³) over the preceding three
+              weeks. Pollution amplifies the risk — active dust events and high PM10 add to the score, so a dusty
+              day can push the band higher than pollen alone would.
             </p>
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               {BANDS.map((b) => (
@@ -112,7 +114,8 @@ export default function AboutPage() {
             <div className="pa-card-body">
               <ul className="text-sm" style={{ color: "var(--pa-ink-soft)", paddingLeft: "1.1rem", margin: 0, display: "flex", flexDirection: "column", gap: ".4rem" }}>
                 <li>Next.js (App Router) + TypeScript</li>
-                <li>Prisma + SQLite</li>
+                <li>Prisma + PostgreSQL</li>
+              <li>Role-based contributor &amp; validation workflow</li>
                 <li>Leaflet maps</li>
                 <li>Recharts</li>
               </ul>
@@ -133,7 +136,7 @@ export default function AboutPage() {
                 <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">
                   CC BY 4.0
                 </a>
-                . A public JSON API exposes the species, pollen types, and flowering calendar.
+                . A public JSON API exposes the plants, pollen types, and flowering calendar.
               </p>
               <Link href="/api/v1/meta" className="pa-btn pa-btn-outline mt-3">
                 <i className="bi bi-braces" /> /api/v1/meta

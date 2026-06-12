@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { computeForecast, visual } from "@/lib/risk";
+import { computeForecast, visual, healthAdvice, bandLabel } from "@/lib/risk";
 import { PageHead } from "@/components/PageHead";
+import { requireContribute } from "@/lib/auth";
 
 export const metadata = { title: "Pollen Allergy Forecast · UAE Pollen Atlas" };
 
@@ -19,6 +20,7 @@ export default async function ForecastPage({
 }: {
   searchParams: Promise<{ regionId?: string }>;
 }) {
+  await requireContribute();
   const { regionId: regionIdParam } = await searchParams;
   const regionId = regionIdParam ? Number(regionIdParam) : null;
 
@@ -44,7 +46,7 @@ export default async function ForecastPage({
             <option value="">All UAE</option>
             {regions.map((rg) => (
               <option key={rg.id} value={rg.id}>
-                {rg.name}
+                {rg.name}{rg.nameAr ? ` · ${rg.nameAr}` : ""}
               </option>
             ))}
           </select>
@@ -82,6 +84,16 @@ export default async function ForecastPage({
             <p className="text-sm mt-2" style={{ color: "var(--pa-ink-soft)" }}>
               {forecast.riskNote}
             </p>
+            {forecast.hasMeasuredData && (
+              <p className="text-xs mt-2" style={{ color: "var(--pa-mute)" }}>
+                <i className="bi bi-broadcast-pin" /> Trap-measured peak:{" "}
+                <strong>{forecast.peakTaxon}</strong> at {forecast.peakGrainsPerM3?.toFixed(0)} grains/m³
+                {" "}(last 21 days) — measured load drives the score over the calendar proxy.
+              </p>
+            )}
+            <div className="mt-3" style={{ background: v.bg, color: v.fg, borderRadius: "var(--pa-radius-sm)", padding: ".65rem .85rem", fontSize: ".85rem", lineHeight: 1.5 }}>
+              <i className="bi bi-heart-pulse" /> <strong>Advice:</strong> {healthAdvice(forecast.riskLevel)}
+            </div>
           </div>
         </div>
 
@@ -107,8 +119,10 @@ export default async function ForecastPage({
               <thead>
                 <tr>
                   <th>Taxon</th>
-                  <th>Species</th>
+                  <th>Plant</th>
                   <th style={{ textAlign: "right" }}>Records</th>
+                  <th style={{ textAlign: "right" }}>grains/m³</th>
+                  <th style={{ textAlign: "right" }}>Band</th>
                   <th style={{ textAlign: "right" }}>Intensity</th>
                 </tr>
               </thead>
@@ -124,12 +138,29 @@ export default async function ForecastPage({
                           <i className="bi bi-flower1" /> in flower
                         </span>
                       )}
+                      {t.measured && (
+                        <span className="pa-pill pa-pill-info" style={{ marginLeft: ".4rem" }}>
+                          <i className="bi bi-broadcast-pin" /> measured
+                        </span>
+                      )}
                     </td>
                     <td className="text-sm" style={{ fontStyle: "italic", color: "var(--pa-mute)" }}>
                       {t.species}
                     </td>
                     <td className="font-mono text-xs" style={{ textAlign: "right" }}>
                       {t.recordCount}
+                    </td>
+                    <td className="font-mono text-xs" style={{ textAlign: "right" }}>
+                      {t.measured ? t.grainsPerM3!.toFixed(0) : "—"}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {t.band != null ? (
+                        <span className="pa-badge" style={{ background: visual(bandLabel(t.band)).bg, color: visual(bandLabel(t.band)).fg }}>
+                          {bandLabel(t.band)}
+                        </span>
+                      ) : (
+                        <span className="text-mute text-xs">—</span>
+                      )}
                     </td>
                     <td className="font-mono" style={{ textAlign: "right" }}>
                       {t.intensity}

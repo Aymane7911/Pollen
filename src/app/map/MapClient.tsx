@@ -21,6 +21,7 @@ export default function MapClient() {
   const layers = useRef<Record<string, LType.LayerGroup>>({});
   const icons = useRef<Record<string, LType.DivIcon>>({});
   const riskLoaded = useRef(false);
+  const alertsLoaded = useRef(false);
 
   const [ready, setReady] = useState(false);
   const [lookups, setLookups] = useState<{ regions: Lookup[]; types: Lookup[] }>({ regions: [], types: [] });
@@ -31,6 +32,7 @@ export default function MapClient() {
   const [showRisk, setShowRisk] = useState(false);
   const [showTraps, setShowTraps] = useState(true);
   const [showBeehives, setShowBeehives] = useState(false);
+  const [showAlerts, setShowAlerts] = useState(false);
   const [recordCount, setRecordCount] = useState(0);
   const [trapCount, setTrapCount] = useState(0);
 
@@ -50,6 +52,7 @@ export default function MapClient() {
         trap: L.layerGroup().addTo(map),
         risk: L.layerGroup(),
         beehive: L.layerGroup(),
+        alert: L.layerGroup(),
       };
       icons.current = {
         trap: L.divIcon({ html: '<div style="background:#6c4f9c;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);font-size:11px"><i class="bi bi-broadcast-pin"></i></div>', className: "", iconSize: [24, 24], iconAnchor: [12, 12] }),
@@ -126,6 +129,29 @@ export default function MapClient() {
     } else map.removeLayer(g);
   }, [ready, showRisk]);
 
+  // Alert plume layer (§9 wind-directional affected areas; lazy-load, toggle).
+  useEffect(() => {
+    if (!ready) return;
+    const L = LRef.current!, map = mapRef.current!, g = layers.current.alert;
+    if (showAlerts) {
+      if (!alertsLoaded.current) {
+        alertsLoaded.current = true;
+        fetch("/api/map/alerts").then((r) => r.json()).then((rows: Array<{ id: number; region: string; level: string; score: number; colorBg: string; summary: string; recommendedActions: string | null; bearingDeg: number | null; radiusKm: number | null; recipientCount: number; polygon: [number, number][] }>) => {
+          for (const a of rows) {
+            if (!a.polygon?.length) continue;
+            const poly = L.polygon(a.polygon, { color: a.colorBg, weight: 2, fillColor: a.colorBg, fillOpacity: 0.22 });
+            const dir = a.bearingDeg != null
+              ? `~${a.radiusKm?.toFixed(0)} km downwind (bearing ${a.bearingDeg.toFixed(0)}°)`
+              : `~${a.radiusKm?.toFixed(0)} km (omnidirectional — no wind)`;
+            poly.bindPopup(`<strong style="font-size:.95rem">${a.region}</strong> ${tag(a.level, a.colorBg)}<div style="font-size:.8rem;margin-top:4px">Alert score <strong>${a.score}</strong></div><div style="color:#42504a;font-size:.78rem;margin-top:4px">${a.summary}</div><div style="color:#6b7770;font-size:.78rem;margin-top:4px"><strong>Affected area:</strong> ${dir}</div>${a.recommendedActions ? `<div style="font-size:.78rem;margin-top:6px"><strong>Recommended:</strong> ${a.recommendedActions}</div>` : ""}<div style="color:#6b7770;font-size:.72rem;margin-top:6px"><i class="bi bi-send"></i> ${a.recipientCount} recipient(s) notified</div>`);
+            g.addLayer(poly);
+          }
+        }).catch(() => {});
+      }
+      map.addLayer(g);
+    } else map.removeLayer(g);
+  }, [ready, showAlerts]);
+
   // Beehives (lazy-load, toggle).
   useEffect(() => {
     if (!ready) return;
@@ -146,6 +172,29 @@ export default function MapClient() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 pa-content">
+      {/* How to use + marker legend */}
+      <div className="pa-card" style={{ padding: "1rem 1.15rem", marginBottom: "1rem", borderLeft: "3px solid var(--pa-primary)" }}>
+        <div className="flex items-start gap-3">
+          <i className="bi bi-info-circle" style={{ color: "var(--pa-primary)", fontSize: "1.2rem", marginTop: ".1rem" }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="text-sm" style={{ color: "var(--pa-ink-soft)", lineHeight: 1.6 }}>
+              <strong>How to use this map.</strong> Turn <strong>layers</strong> on and off with the checkboxes below,
+              narrow the view with the <strong>audience</strong> (vegetation · beekeeper · pharma), region, pollen-type and
+              year filters, then <strong>click any marker</strong> for its details. Switch on <strong>Risk index</strong>{" "}to
+              see each region&apos;s combined pollen + air-quality risk, or <strong>Alert plumes</strong> for the downwind
+              area of any live high-risk alert.
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs" style={{ color: "var(--pa-mute)" }}>
+              <span className="flex items-center gap-1"><span style={{ width: 11, height: 11, borderRadius: "50%", background: "#1f5d3a", border: "1.5px solid #163f28", display: "inline-block" }} /> Pollen record</span>
+              <span className="flex items-center gap-1"><i className="bi bi-broadcast-pin" style={{ color: "#6c4f9c" }} /> Trap device</span>
+              <span className="flex items-center gap-1"><i className="bi bi-hexagon-fill" style={{ color: "#7a5b13" }} /> Apiary</span>
+              <span className="flex items-center gap-1"><span style={{ width: 12, height: 12, borderRadius: "50%", background: "#c98a2b", border: "2px solid #fff", boxShadow: "0 0 0 1px var(--pa-line)", display: "inline-block" }} /> Regional risk</span>
+              <span className="flex items-center gap-1"><span style={{ width: 15, height: 10, background: "rgba(179,38,30,.22)", border: "1px solid #b3261e", display: "inline-block" }} /> Alert plume (downwind)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="pa-card" style={{ padding: ".85rem", marginBottom: "1rem" }}>
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs text-mute">Audience
@@ -177,6 +226,7 @@ export default function MapClient() {
           <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={showRisk} onChange={(e) => setShowRisk(e.target.checked)} /> Risk index</label>
           <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={showTraps} onChange={(e) => setShowTraps(e.target.checked)} /> Traps</label>
           <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={showBeehives} onChange={(e) => setShowBeehives(e.target.checked)} /> Beehives</label>
+          <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={showAlerts} onChange={(e) => setShowAlerts(e.target.checked)} /> Alert plumes</label>
           <span className="ml-auto flex items-center gap-2">
             <span className="pa-pill"><i className="bi bi-circle-fill" /> {recordCount} records</span>
             <span className="pa-pill pa-pill-info"><i className="bi bi-broadcast-pin" /> {trapCount} traps</span>
@@ -193,6 +243,14 @@ export default function MapClient() {
         )}
       </div>
       <div ref={mapEl} style={{ height: "70vh", borderRadius: "var(--pa-radius)", border: "1px solid var(--pa-line)", overflow: "hidden" }} />
+      <p className="text-xs text-mute mt-3" style={{ lineHeight: 1.6 }}>
+        <i className="bi bi-database" /> <strong>Sources:</strong>{" "}pollen records &amp; trap and apiary locations from
+        field collection in the UAE Pollen Atlas (published records only); air quality in the risk layer from the
+        <strong> UAE National Center of Meteorology (NCM)</strong> &amp; <strong>Environment Agency – Abu Dhabi (EAD)</strong>;
+        basemap © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" style={{ color: "var(--pa-primary)" }}>OpenStreetMap</a> contributors.
+        The regional risk index and alert plumes are computed live by the Atlas from allergenic pollen in season combined with the
+        latest air quality and wind. Locations are accurate; readings are illustrative.
+      </p>
     </div>
   );
 }

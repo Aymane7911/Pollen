@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { canContribute } from "@/lib/roles";
 
 // Port of MapController.Records. No auth in this build, so the public rule
 // applies: only Published records are returned. Supports region/type/year
 // filters plus the §10 audience forage filter (bee | cultivation).
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
+  const user = await getCurrentUser();
   const where: Prisma.PollenRecordWhereInput = {
     latitude: { not: null },
     longitude: { not: null },
-    status: "Published",
+    // Contributors see every status on the map; the public sees only Published.
+    ...(canContribute(user?.role) ? {} : { status: "Published" }),
   };
   const regionId = sp.get("regionId");
   const pollenTypeId = sp.get("pollenTypeId");

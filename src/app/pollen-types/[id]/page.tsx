@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { humanize } from "@/lib/enums";
+import { humanize, MicroscopeType } from "@/lib/enums";
+import { getCurrentUser } from "@/lib/auth";
+import { canContribute, canValidate } from "@/lib/roles";
+import { uploadPollenImage } from "@/lib/upload-actions";
 import { PageHead, StatusBadge, BackLink } from "@/components/PageHead";
+import { Field, TextInput, Select } from "@/components/form";
 
 function sizeRange(min: number | null, max: number | null): string {
   if (min == null && max == null) return "—";
@@ -12,11 +16,16 @@ function sizeRange(min: number | null, max: number | null): string {
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const type = await prisma.pollenType.findUnique({
-    where: { id: Number(id) },
-    include: { plantSpecies: true },
+    where: { id: Number.isInteger(Number(id)) ? Number(id) : -1 },
+    include: { plantSpecies: true, images: { orderBy: { id: "asc" } } },
   });
 
   if (!type) notFound();
+
+  const user = await getCurrentUser();
+  // Non-Published types are visible only to validators or the creator (not the public).
+  if (type.status !== "Published" && !canValidate(user?.role) && type.createdById !== user?.id) notFound();
+  const canUpload = !!user?.isApproved && canContribute(user.role);
 
   const references = (type.references ?? "")
     .split(/\r?\n/)
@@ -39,6 +48,13 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               </div>
             </div>
             <div className="pa-card-body">
+              {type.primaryImagePath && (
+                <img
+                  src={type.primaryImagePath}
+                  alt={type.name}
+                  style={{ width: "100%", maxHeight: 340, objectFit: "contain", borderRadius: "var(--pa-radius-sm)", border: "1px solid var(--pa-line)", background: "#faf9f6", marginBottom: "1rem" }}
+                />
+              )}
               <dl className="pa-dl">
                 <dt>Status</dt>
                 <dd>
@@ -52,7 +68,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 <dd>{humanize(type.apertures)}</dd>
                 <dt>Surface</dt>
                 <dd>{humanize(type.surface)}</dd>
-                <dt>Linked species</dt>
+                <dt>Linked plant</dt>
                 <dd>
                   <Link href={`/species/${type.plantSpeciesId}`} style={{ fontStyle: "italic" }}>
                     {type.plantSpecies.scientificName}
@@ -101,6 +117,55 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             </div>
           </div>
         </div>
+
+        {type.images.length > 0 && (
+          <div className="pa-card mt-3">
+            <div className="pa-card-header">
+              <div>
+                <span className="pa-card-eyebrow">Microscopy</span>
+                <h2>Pollen images</h2>
+              </div>
+              <span className="pa-pill pa-pill-mute">{type.images.length}</span>
+            </div>
+            <div className="pa-card-body">
+              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" }}>
+                {type.images.map((img) => (
+                  <figure key={img.id} style={{ margin: 0 }}>
+                    <img
+                      src={img.filePath}
+                      alt={img.caption ?? type.name}
+                      style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: "var(--pa-radius-sm)", border: "1px solid var(--pa-line)", background: "#faf9f6" }}
+                    />
+                    {img.caption && (
+                      <figcaption className="text-xs text-mute" style={{ marginTop: ".3rem" }}>
+                        {img.caption}
+                      </figcaption>
+                    )}
+                  </figure>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {canUpload && (
+          <div className="pa-card mt-3" style={{ maxWidth: 520 }}>
+            <div className="pa-card-header"><div><span className="pa-card-eyebrow">Contribute</span><h2>Upload image</h2></div></div>
+            <div className="pa-card-body">
+              <form action={uploadPollenImage}>
+                <input type="hidden" name="pollenTypeId" value={type.id} />
+                <Field label="Image file" hint="jpg / png / webp / tif">
+                  <TextInput type="file" name="file" accept="image/*" required />
+                </Field>
+                <div className="grid gap-3" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                  <Field label="Caption" hint="optional"><TextInput name="caption" /></Field>
+                  <Field label="Microscope"><Select name="microscope" defaultValue="LightMicroscopy">{MicroscopeType.map((o) => <option key={o}>{o}</option>)}</Select></Field>
+                </div>
+                <button type="submit" className="pa-btn pa-btn-primary"><i className="bi bi-upload" /> Upload image</button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
